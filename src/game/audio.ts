@@ -83,11 +83,17 @@ class SoundEngine {
     this.noise(0.07, 2900, 0.12, 'bandpass');
   }
 
-  reload(reloadSec: number): void {
-    this.noise(0.06, 2500, 0.14, 'bandpass');
-    window.setTimeout(() => {
-      this.noise(0.09, 1300, 0.18, 'bandpass');
-    }, Math.max(150, reloadSec * 580));
+  reloadCue(stage: 'out' | 'in' | 'rack'): void {
+    if (stage === 'out') {
+      this.noise(0.055, 2400, 0.14, 'bandpass');
+      this.tone(420, 260, 0.05, 0.08, 'triangle');
+    } else if (stage === 'in') {
+      this.noise(0.075, 1600, 0.2, 'bandpass');
+      this.tone(320, 520, 0.06, 0.12, 'triangle');
+    } else {
+      this.noise(0.08, 3200, 0.18, 'bandpass');
+      this.tone(680, 920, 0.05, 0.1, 'square');
+    }
   }
 
   hitmarker(headshot: boolean): void {
@@ -108,6 +114,24 @@ class SoundEngine {
 
   death(): void {
     this.tone(210, 52, 0.38, 0.4, 'sawtooth');
+  }
+
+  grenadeThrow(): void {
+    this.noise(0.05, 3400, 0.14, 'bandpass');
+    this.tone(520, 260, 0.09, 0.12, 'triangle');
+  }
+
+  explosion(distanceGain = 1): void {
+    const g = Math.max(0.12, Math.min(1, distanceGain));
+    this.noise(0.65, 620, 0.72 * g, 'lowpass');
+    this.noise(0.32, 1800, 0.34 * g, 'bandpass');
+    this.tone(115, 26, 0.48, 0.58 * g, 'sawtooth');
+  }
+
+  wallImpact(distanceGain = 1): void {
+    const g = Math.max(0.06, Math.min(1, distanceGain));
+    this.noise(0.06, 1750, 0.14 * g, 'bandpass');
+    this.tone(1850, 740, 0.045, 0.05 * g, 'triangle');
   }
 }
 

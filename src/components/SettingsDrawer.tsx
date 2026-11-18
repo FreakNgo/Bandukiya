@@ -175,6 +175,46 @@ export function SettingsDrawer({ open, settings, onChange, onClose }: SettingsDr
               ))}
             </div>
           </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <div className="mb-1.5 text-xs font-medium text-[#cbd5e1]">Crosshair Color</div>
+              <div className="grid grid-cols-4 gap-1 rounded-lg border border-white/10 bg-[#0b0f14] p-1">
+                {(['green', 'amber', 'cyan', 'white'] as const).map((col) => (
+                  <button
+                    key={col}
+                    type="button"
+                    onClick={() => update('crosshairColor', col)}
+                    className={`min-h-[36px] rounded-md px-2 text-xs font-semibold capitalize transition-colors whitespace-nowrap ${
+                      settings.crosshairColor === col
+                        ? 'bg-amber-500 text-slate-950'
+                        : 'text-[#94a3b8] hover:text-white'
+                    }`}
+                  >
+                    {col}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-white/10 bg-[#161e29] px-3.5 py-2.5">
+              <div>
+                <div className="text-xs font-semibold text-white">C Key Crouch</div>
+                <div className="text-[11px] text-[#94a3b8]">Ctrl always holds crouch</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => update('crouchToggle', !settings.crouchToggle)}
+                className={`min-h-[36px] min-w-[72px] rounded-md px-3 text-xs font-semibold transition-colors whitespace-nowrap ${
+                  settings.crouchToggle
+                    ? 'bg-amber-500 text-slate-950'
+                    : 'bg-[#222d3c] text-[#cbd5e1]'
+                }`}
+              >
+                {settings.crouchToggle ? 'Toggle' : 'Hold'}
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="mt-6 flex items-center justify-between gap-3 border-t border-white/10 pt-4">

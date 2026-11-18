@@ -4,9 +4,16 @@ import { LobbyModal } from './components/LobbyModal';
 import { SettingsDrawer } from './components/SettingsDrawer';
 import { TouchControls } from './components/TouchControls';
 import { BandukwaEngine } from './game/engine';
+import {
+  enterGameFullscreen,
+  isFullscreenActive,
+  lockGameKeyboard,
+  toggleGameFullscreen,
+  unlockGameKeyboard,
+} from './game/fullscreen';
 import { DEFAULT_SETTINGS, type HudSnapshot, type SettingsState } from './types/game';
 
-const SETTINGS_STORAGE_KEY = 'bandukwa_settings_v1';
+const SETTINGS_STORAGE_KEY = 'bandukwa_settings_v2';
 const CALLSIGN_STORAGE_KEY = 'bandukwa_callsign_v1';
 
 function loadInitialSettings(): SettingsState {
@@ -39,8 +46,10 @@ const INITIAL_HUD: HudSnapshot = {
   reloading: false,
   reloadProgress: 0,
   ads: false,
-  sliding: false,
+  crouching: false,
   sprinting: false,
+  sliding: false,
+  airborne: false,
   deadSeconds: 0,
   crosshairGap: 8,
   hitMarker: 'none',
@@ -53,6 +62,12 @@ const INITIAL_HUD: HudSnapshot = {
   mapReady: false,
   weaponsReady: false,
   peerCount: 0,
+  grenades: 2,
+  maxGrenades: 2,
+  grenadeRefillProgress: 1,
+  roomCode: null,
+  isHostRoom: true,
+  maxPlayers: 4,
 };
 
 export default function App() {
@@ -67,6 +82,7 @@ export default function App() {
   const [tabScoreboard, setTabScoreboard] = useState(false);
   const [p2pStatus, setP2pStatus] = useState('');
   const [hasCoarsePointer, setHasCoarsePointer] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     const checkTouch = () => {
@@ -126,6 +142,35 @@ export default function App() {
     };
   }, [hud.playing]);
 
+  useEffect(() => {
+    const syncFullscreen = () => {
+      const active = isFullscreenActive();
+      setIsFullscreen(active);
+      if (active) {
+        void lockGameKeyboard();
+      } else {
+        unlockGameKeyboard();
+      }
+    };
+    syncFullscreen();
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    document.addEventListener('webkitfullscreenchange', syncFullscreen);
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreen);
+      document.removeEventListener('webkitfullscreenchange', syncFullscreen);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hud.playing) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [hud.playing]);
+
   const handleSettingsChange = (next: SettingsState) => {
     setSettings(next);
     engineRef.current?.updateSettings(next);
@@ -145,10 +190,15 @@ export default function App() {
     }
   };
 
-  const handleStartMatch = () => {
+  const handleStartMatch = async () => {
     setLobbyOpen(false);
     setSettingsOpen(false);
+    await enterGameFullscreen();
     engineRef.current?.deploy(callsign, !isMobileHud);
+  };
+
+  const handleToggleFullscreen = () => {
+    void toggleGameFullscreen().then((active) => setIsFullscreen(active));
   };
 
   const handleOpenSettings = () => {
@@ -173,7 +223,7 @@ export default function App() {
       <div
         ref={canvasMountRef}
         onClick={() => {
-          if (hud.started && !hud.playing && !lobbyOpen && !settingsOpen && !isMobileHud) {
+          if (hud.started && !hud.pointerLocked && !lobbyOpen && !settingsOpen && !isMobileHud) {
             engineRef.current?.requestLock();
           }
         }}
@@ -183,10 +233,13 @@ export default function App() {
       {/* Tactical HUD */}
       <HudOverlay
         hud={hud}
+        crosshairColor={settings.crosshairColor}
         showFullScoreboard={tabScoreboard}
         isMobileHud={isMobileHud}
+        isFullscreen={isFullscreen}
         onSelectWeapon={(idx) => engineRef.current?.selectWeapon(idx)}
         onOpenSettings={handleOpenSettings}
+        onToggleFullscreen={handleToggleFullscreen}
         onPause={handlePause}
       />
 
@@ -194,14 +247,19 @@ export default function App() {
       {hud.started && hud.playing && isMobileHud && !lobbyOpen && !settingsOpen && (
         <TouchControls
           ads={hud.ads}
+          crouching={hud.crouching}
+          sprinting={hud.sprinting}
+          sliding={hud.sliding}
+          grenades={hud.grenades}
           onMove={(x, y) => engineRef.current?.setTouchMove(x, y)}
           onLookDelta={(dx, dy) => engineRef.current?.addLookDelta(dx, dy)}
           onFireChange={(f) => engineRef.current?.setTouchFire(f)}
           onToggleAds={() => engineRef.current?.toggleTouchAds()}
           onJump={() => engineRef.current?.triggerJump()}
-          onSlide={() => engineRef.current?.triggerSlide()}
+          onToggleCrouch={() => engineRef.current?.toggleTouchCrouch()}
           onReload={() => engineRef.current?.triggerReload()}
           onNextWeapon={() => engineRef.current?.cycleWeapon()}
+          onGrenade={() => engineRef.current?.triggerGrenade()}
         />
       )}
 
@@ -212,22 +270,27 @@ export default function App() {
         callsign={callsign}
         botCount={settings.botCount}
         peerCount={hud.peerCount}
+        maxPlayers={hud.maxPlayers}
+        roomCode={hud.roomCode}
+        isHostRoom={hud.isHostRoom}
         p2pStatus={p2pStatus}
         mapReady={hud.mapReady}
         weaponsReady={hud.weaponsReady}
+        isFullscreen={isFullscreen}
         onCallsignChange={handleCallsignChange}
         onStartMatch={handleStartMatch}
         onOpenSettings={handleOpenSettings}
-        onCreateInvite={async () => {
+        onToggleFullscreen={handleToggleFullscreen}
+        onHostRoom={async () => {
           if (!engineRef.current) return '';
-          return engineRef.current.p2p.createHostInvite();
+          return engineRef.current.hostMultiplayer(callsign);
         }}
-        onAcceptReply={async (code) => {
-          await engineRef.current?.p2p.acceptReplyCode(code);
+        onJoinRoom={async (code) => {
+          if (!engineRef.current) return;
+          await engineRef.current.joinMultiplayer(code, callsign);
         }}
-        onJoinInvite={async (code) => {
-          if (!engineRef.current) return '';
-          return engineRef.current.p2p.joinWithInvite(code);
+        onLeaveRoom={async () => {
+          await engineRef.current?.leaveMultiplayer();
         }}
       />
 

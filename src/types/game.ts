@@ -1,5 +1,6 @@
 export type ControlMode = 'auto' | 'desktop' | 'mobile';
 export type LobbyTab = 'solo' | 'host' | 'join';
+export type CrosshairColor = 'green' | 'amber' | 'cyan' | 'white';
 
 export interface SettingsState {
   sensitivity: number;
@@ -9,16 +10,20 @@ export interface SettingsState {
   shadows: boolean;
   controlMode: ControlMode;
   botCount: number;
+  crosshairColor: CrosshairColor;
+  crouchToggle: boolean;
 }
 
 export const DEFAULT_SETTINGS: SettingsState = {
   sensitivity: 1.0,
-  adsMultiplier: 0.65,
-  fov: 78,
+  adsMultiplier: 0.7,
+  fov: 80,
   volume: 0.75,
   shadows: true,
   controlMode: 'auto',
-  botCount: 4,
+  botCount: 1,
+  crosshairColor: 'green',
+  crouchToggle: true,
 };
 
 export interface WeaponSpec {
@@ -26,18 +31,29 @@ export interface WeaponSpec {
   name: string;
   category: 'Rifle' | 'Pistol' | 'SMG';
   damage: number;
+  headshotMul: number;
   rpm: number;
   mag: number;
   reloadTime: number;
+  /** Standing first-shot base spread */
   spread: number;
   adsSpreadMul: number;
+  crouchSpreadMul: number;
+  /** Extra spread added at full running speed (counter-strafe resets this) */
+  moveInaccuracy: number;
+  /** CS-style weapon movement speed (m/s) */
+  maxSpeed: number;
   auto: boolean;
-  /** Snappy arcade pitch kick per shot (radians) */
+  /** Vertical recoil kick per shot (radians) */
   recoilPitch: number;
-  /** Horizontal jitter per shot (radians) */
+  /** Horizontal jitter/sway per shot (radians) */
   recoilYaw: number;
   /** Camera recoil spring recovery speed */
   recoilRecovery: number;
+  /** CS-style spray climb rate per continuous shot */
+  sprayClimb: number;
+  /** CS-style horizontal S-curve sway during sustained spray */
+  spraySway: number;
   /** Viewmodel backward Z kick */
   vmKickZ: number;
   /** Viewmodel upward pitch kick */
@@ -102,8 +118,10 @@ export interface HudSnapshot {
   reloading: boolean;
   reloadProgress: number;
   ads: boolean;
-  sliding: boolean;
+  crouching: boolean;
   sprinting: boolean;
+  sliding: boolean;
+  airborne: boolean;
   deadSeconds: number;
   crosshairGap: number;
   hitMarker: 'none' | 'body' | 'head';
@@ -116,4 +134,10 @@ export interface HudSnapshot {
   mapReady: boolean;
   weaponsReady: boolean;
   peerCount: number;
+  grenades: number;
+  maxGrenades: number;
+  grenadeRefillProgress: number;
+  roomCode: string | null;
+  isHostRoom: boolean;
+  maxPlayers: number;
 }
